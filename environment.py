@@ -1,5 +1,11 @@
 import enum
 
+class Action(enum.Enum):
+    UP = 1
+    DONW = -1
+    LEFT = 2
+    RIGHT = -2
+
 class State():
     def __init__(self, row=-1, column=-1):
         pass
