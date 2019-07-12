@@ -1,6 +1,23 @@
 import numpy as np
+from abc import ABC, abstractmethod
 
-class Agent():
+class Agent(ABC):
+    """
+    Args:
+        state
+
+    Return:
+        action
+    """
+    @abstractmethod
+    def __init__(self):
+        pass
+
+    @abstractmethod
+    def policy(self):
+        pass
+
+class RandomAgent(Agent):
     """
     Args:
         state
@@ -14,46 +31,38 @@ class Agent():
     def policy(self, state):
         return np.random.choice(self.actions)
 
-    def train(self, env):
-        # equivalent to fit
-        # learn Q: update Q
-        pass
-        return None
-
-
-class Logger():
+class OffPolicyEpsilonGreedyAgent(Agent):
     """
-    
-        def init_log(self):
-        self.reward_log = []
+    eps
+    """
+    def __init__(self, env, epsilon):
+        self.actions = env.actions
+        self._epsilon = epsilon
+        self.state_to_index = dict([(state, i) for i, state in env.states])
+        self.Q = [list(range(4))] * len(env.states)
 
-    def log(self, reward):
-        self.reward_log.append(reward)
+    @property
+    def epsilon(self):
+        return self._epsilon
 
-    def show_reward_log(self, interval=50, episode=-1):
-        if episode > 0:
-            rewards = self.reward_log[-interval:]
-            mean = np.round(np.mean(rewards), 3)
-            std = np.round(np.std(rewards), 3)
-            print("At Episode {} average reward is {} (+/-{}).".format(
-                   episode, mean, std))
+    @epsilon.setter
+    def epsilon(self, epsilon):
+        self._epsilon = epsilon
+
+    def policy(self, state):
+        if np.random.rand() < self._epsilon:
+            return np.random.choice(self.actions)
         else:
-            indices = list(range(0, len(self.reward_log), interval))
-            means = []
-            stds = []
-            for i in indices:
-                rewards = self.reward_log[i:(i + interval)]
-                means.append(np.mean(rewards))
-                stds.append(np.std(rewards))
-            means = np.array(means)
-            stds = np.array(stds)
-            plt.figure()
-            plt.title("Reward History")
-            plt.grid()
-            plt.fill_between(indices, means - stds, means + stds,
-                             alpha=0.1, color="g")
-            plt.plot(indices, means, "o-", color="g",
-                     label="Rewards for each {} episode".format(interval))
-            plt.legend(loc="best")
-            plt.show()
-"""
+            idx_state = self.state_to_index[state]
+            idx_action = np.argmax(self.Q[idx_state])
+            return self.actions[idx_action]
+
+    def train(self):
+
+class OnPolicyEpsilonGreedyAgent(Agent):
+    pass
+
+if __name__ == '__main__':
+    from env_config import *
+    env = Environment(grid)
+    agent = RandomAgent(env)
