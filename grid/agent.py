@@ -51,13 +51,11 @@ class OffPolicyEpsilonGreedyAgent(Agent):
     def epsilon(self, epsilon):
         self.__epsilon = epsilon
 
-    def policy(self, state):
-        if np.random.rand() < self._epsilon:
+    def policy(self, s):
+        if np.random.rand() < self.__epsilon:
             return np.random.choice(self.actions)
         else:
-            idx_state = self.state_to_index[state]
-            idx_action = np.argmax(self.Q[idx_state])
-            return self.actions[idx_action]
+            return np.argmax(self.Q[s])
 
     def log_experience(self, exp):
         self.log_exps.append(exp)
@@ -69,13 +67,11 @@ class GymFrozenLakeEpsilonGreedyAgent(Agent):
     """
     eps
     """
-    def __init__(self, env, epsilon=0.1):
+    def __init__(self, env, epsilon=0.5):
         self.env = env
-        self.gamma = 0.99
+        self.gamma = 0.95
         self.__epsilon = epsilon
         self.actions = list(range(env.action_space.n))
-        self.sa_counts = defaultdict(lambda: [0] * env.action_space.n)
-        self.Q = defaultdict(lambda: [0] * env.action_space.n)
         self.log_experiences = []
         self.log_episodes = []
         print(env.render())
@@ -92,24 +88,16 @@ class GymFrozenLakeEpsilonGreedyAgent(Agent):
         if np.random.rand() < self.__epsilon:
             return np.random.choice(self.actions)
         else:
-            if s in self.Q and any([q != 0 for q in self.Q[s]]):
-                return np.argmax(self.Q[s])
-            else:
-                return np.random.choice(self.actions)
+            return np.argmax(self.Q[s])
 
     def init_log_experiences(self):
         self.log_experiences = []
 
     def init_Q(self):
-        self.Q = defaultdict(lambda: [0] * self.env.action_space.n)
+        self.Q = defaultdict(lambda: 0.001*np.random.rand(self.env.action_space.n))
 
     def init_sa_counts(self):
         self.sa_counts = defaultdict(lambda: [0] * self.env.action_space.n)
-
-    def init_all(self):
-        self.init_log_experiences()
-        self.init_Q()
-        self.init_sa_counts()
 
     def log_experience(self, exp):
         self.log_experiences.append(exp)
@@ -118,22 +106,23 @@ class GymFrozenLakeEpsilonGreedyAgent(Agent):
         self.log_episodes.append(self.log_experiences)
 
     def train(self, num_episodes=1000):
-        self.init_all()
+        self.init_Q()
+        self.init_sa_counts()
         for _ in range(num_episodes):
+            self.init_log_experiences()
+            # self.init_sa_counts()
             self.train_episode()
             self.log_episode()
+            self.epsilon = 0.999 * self.epsilon
 
     def train_episode(self):
         this_s = self.env.reset()
         done = False
         while not done:
-            # print(self.env.render())
             a = self.policy(this_s)
             next_s, reward, done, info = self.env.step(a)
-            if reward == 0:
-                reward = -0.01
+            reward = self.env.dict_state_reward[next_s]
             experience = (this_s, next_s, a, reward, done)
-            # print(experience, '\n')
             self.log_experience(experience)
             this_s = next_s
 
@@ -141,16 +130,13 @@ class MonteCarloAgent(GymFrozenLakeEpsilonGreedyAgent):
     def __init__(self, env):
         super(MonteCarloAgent, self).__init__(env)
 
-    def train(self, num_episodes=1000):
-        self.init_all()
-        for _ in range(num_episodes):
-            self.train_episode()
-            self.log_episode()
-            self.update_Q()
+    def train_episode(self):
+        super().train_episode()
+        self.update_Q()
 
     def update_Q(self):
         for i, exp0 in enumerate(self.log_experiences):
-            s, _, a, reward, _ = exp0
+            s, _, a, _, _ = exp0
             gs = [np.power(self.gamma, j) * exp1[3] for j, exp1 in enumerate(self.log_experiences[i:])]
             G = sum(gs)
             self.sa_counts[s][a] += 1
