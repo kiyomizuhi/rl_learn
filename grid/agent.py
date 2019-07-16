@@ -127,8 +127,8 @@ class GymFrozenLakeEpsilonGreedyAgent(Agent):
             this_s = next_s
 
 class MonteCarloAgent(GymFrozenLakeEpsilonGreedyAgent):
-    def __init__(self, env):
-        super(MonteCarloAgent, self).__init__(env)
+    def __init__(self, env, epsilon=0.5):
+        super(MonteCarloAgent, self).__init__(env, epsilon)
 
     def train_episode(self):
         super().train_episode()
@@ -142,6 +142,29 @@ class MonteCarloAgent(GymFrozenLakeEpsilonGreedyAgent):
             self.sa_counts[s][a] += 1
             alpha = 1 / self.sa_counts[s][a]
             self.Q[s][a] += alpha * (G - self.Q[s][a])
+
+
+
+class QlearningAgent(GymFrozenLakeEpsilonGreedyAgent):
+    def __init__(self, env, epsilon=0.5, learning_rate=0.1):
+        super(QlearningAgent, self).__init__(env, epsilon)
+        self.learning_rate = learning_rate
+
+    def train_episode(self):
+        this_s = self.env.reset()
+        done = False
+        while not done:
+            a = self.policy(this_s)
+            next_s, reward, done, info = self.env.step(a)
+            reward = self.env.dict_state_reward[next_s]
+            self.update_Q(this_s, a, reward)
+            experience = (this_s, next_s, a, reward, done)
+            self.log_experience(experience)
+            this_s = next_s
+
+    def update_Q(self, s, a, r):
+        gain = r + self.gamma * self.Q[s][a]
+        self.Q[s][a] += self.learning_rate * (gain - self.Q[s][a])
 
 
 
